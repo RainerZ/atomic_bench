@@ -1,4 +1,4 @@
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{Ordering, fence};
 use std::thread;
 use std::{hint::black_box, sync::atomic::AtomicU64};
 
@@ -42,26 +42,47 @@ fn main() {
     // println!("relaxed background load {:?}", start.elapsed());
 
     //------------------------------------------------------------------
-    thread::spawn(|| {
-        loop {
-            black_box(A.store(1, Ordering::Relaxed));
-        }
-    });
-    let start = std::time::Instant::now();
-    for _ in 0..1000000000 {
-        black_box(A.load(Ordering::Relaxed));
-    }
-    println!("relaxed background store {:?}", start.elapsed());
-    //------------------------------------------------------------------
-
     // thread::spawn(|| {
     //     loop {
-    //         black_box(A.store(1, Ordering::SeqCst));
+    //         black_box(A.store(1, Ordering::Relaxed));
     //     }
     // });
     // let start = std::time::Instant::now();
     // for _ in 0..1000000000 {
-    //     black_box(A.load(Ordering::SeqCst));
+    //     black_box(A.load(Ordering::Relaxed));
     // }
-    // println!("SeqCst background store {:?}", start.elapsed());
+    // println!("relaxed background store {:?}", start.elapsed());
+
+    //------------------------------------------------------------------
+    thread::spawn(|| {
+        loop {
+            black_box(A.store(1, Ordering::Release));
+        }
+    });
+    let start = std::time::Instant::now();
+    for _ in 0..1000000000 {
+        black_box(A.load(Ordering::Acquire));
+    }
+    println!("Release/Acquire background store {:?}", start.elapsed());
+
+    //------------------------------------------------------------------
+
+    thread::spawn(|| {
+        loop {
+            black_box(A.store(1, Ordering::SeqCst));
+        }
+    });
+
+    let start = std::time::Instant::now();
+    for _ in 0..1000000000 {
+        black_box(A.load(Ordering::SeqCst));
+    }
+    println!("SeqCst background store {:?}", start.elapsed()); // thread::spawn(|| {
+
+    let start = std::time::Instant::now();
+    for _ in 0..1000000000 {
+        black_box(A.load(Ordering::Relaxed));
+        fence(Ordering::SeqCst);
+    }
+    println!("SegCst Fence background store {:?}", start.elapsed());
 }
